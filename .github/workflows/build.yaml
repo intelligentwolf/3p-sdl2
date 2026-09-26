@@ -17,9 +17,9 @@ jobs:
         if: runner.os == 'Linux'
         env:
           DEBIAN_FRONTEND: noninteractive
-        # libdecor-0-dev: without it SDL builds with no client-side decorations, and a native
-        # Wayland window on GNOME (no xdg-decoration) has no title bar. It is loaded at run time
-        # (SDL_WAYLAND_LIBDECOR_SHARED), so users without libdecor are unaffected.
+        # libdecor itself is built from the libdecor submodule (build-cmd.sh) and shipped with the
+        # viewer, so it needs meson, wayland-protocols and cairo/pango headers for its plugin.
+        # Deliberately NOT libdecor-0-dev: SDL must configure against the bundled libdecor.
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build \
@@ -27,7 +27,7 @@ jobs:
             libxext-dev libibus-1.0-dev \
             fcitx-libs-dev libudev-dev libunwind-dev \
             libwayland-dev libxkbcommon-dev libpulse-dev libsndio-dev \
-            libdecor-0-dev
+            meson wayland-protocols libcairo2-dev libpango1.0-dev
 
       - name: Build with autobuild
         uses: secondlife/action-autobuild@v5
@@ -36,6 +36,9 @@ jobs:
   release:
     needs: build
     runs-on: [ubuntu-latest]
+    # A new fork's token is read-only; creating the release needs write (v2.28.0-w1 failed on it).
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: secondlife/action-autobuild-release@v3

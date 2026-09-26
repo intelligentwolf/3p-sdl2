@@ -23,6 +23,8 @@ SDL_SOURCE_DIR="SDL2"
 SDL_VERSION=$(sed -n -e 's/^Version: //p' "$TOP/$SDL_SOURCE_DIR/SDL2.spec")
 
 stage="$(pwd)"
+# Absolute now: TOP is relative to $stage, and the platform builds run after a pushd.
+LIBDECOR_SRC="$(cd "$TOP" && pwd)/libdecor"
 
 # load autbuild provided shell functions and variables
 source_environment_tempfile="$stage/source_environment.sh"
@@ -245,6 +247,20 @@ case "$AUTOBUILD_PLATFORM" in
             fi
         done
 
+        # WolfViewer: libdecor, bundled. A native Wayland window on GNOME (no xdg-decoration) gets
+        # its title bar only from libdecor AND one of its plugins (libdecor.c libdecor_new falls
+        # back to no decorations when no plugin loads). Users may have neither, so ship both:
+        # libdecor-0.so.0 beside libSDL2 and the cairo plugin alone in libdecor-plugins/ (libdecor
+        # dlopens every .so in its plugin directory). The viewer's wrapper.sh points
+        # LIBDECOR_PLUGIN_DIR there. The plugin needs cairo and pango from the system.
+        LIBDECOR_PREFIX="$stage/temp_libdecor"
+        meson setup "$stage/build_libdecor" "$LIBDECOR_SRC" --prefix="$LIBDECOR_PREFIX" --libdir=lib \
+            --buildtype=release -Ddemo=false -Dgtk=disabled -Ddbus=disabled
+        ninja -C "$stage/build_libdecor"
+        ninja -C "$stage/build_libdecor" install
+        # SDL must configure against this libdecor, not a system one.
+        export PKG_CONFIG_PATH="$LIBDECOR_PREFIX/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
         mkdir -p "build_debug"
         pushd "build_debug"
             CFLAGS="$DEBUG_CFLAGS" \
@@ -287,6 +303,12 @@ case "$AUTOBUILD_PLATFORM" in
 
         cp -a $PREFIX_RELEASE/lib/*.so* $stage/lib/release
         cp -a $PREFIX_RELEASE/lib/libSDL2main.a $stage/lib/release
+
+        cp -a $LIBDECOR_PREFIX/lib/libdecor-0.so* $stage/lib/release
+        mkdir -p $stage/lib/release/libdecor-plugins
+        cp -a $LIBDECOR_PREFIX/lib/libdecor/plugins-1/libdecor-cairo.so $stage/lib/release/libdecor-plugins/
+        mkdir -p "$stage/LICENSES"
+        cp "$LIBDECOR_SRC/LICENSE" "$stage/LICENSES/libdecor.txt"
     ;;
 
     *)

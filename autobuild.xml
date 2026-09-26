@@ -86,6 +86,8 @@
           <array>
             <string>lib/release/*.so*</string>
             <string>lib/debug/*.so*</string>
+            <string>lib/release/libdecor-plugins/*.so</string>
+            <string>LICENSES/libdecor.txt</string>
           </array>
           <key>name</key>
           <string>linux64</string>
