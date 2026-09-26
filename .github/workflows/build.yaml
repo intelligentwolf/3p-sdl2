@@ -2,46 +2,35 @@ name: Build
 on:
   pull_request:
   push:
-    branches: [main, actions]
+    branches: [main, actions, wolf]
     tags: ['v*']
 jobs:
   build:
     strategy:
       matrix:
-        os: [windows-2022, macos-11, ubuntu-22.04]
+        # WolfViewer only takes SDL2 from this package on Linux (autobuild.xml has linux64 only).
+        os: [ubuntu-22.04]
         addrsize: ["64"]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Linux Build Dependencies
-        if: ${{ runner.os == 'Linux' }}
-        run: sudo apt-get install ninja-build
-
-      - name: Run apt update
         if: runner.os == 'Linux'
-        run: sudo apt update
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        # libdecor-0-dev: without it SDL builds with no client-side decorations, and a native
+        # Wayland window on GNOME (no xdg-decoration) has no title bar. It is loaded at run time
+        # (SDL_WAYLAND_LIBDECOR_SHARED), so users without libdecor are unaffected.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build \
+            mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev \
+            libxext-dev libibus-1.0-dev \
+            fcitx-libs-dev libudev-dev libunwind-dev \
+            libwayland-dev libxkbcommon-dev libpulse-dev libsndio-dev \
+            libdecor-0-dev
 
-      - name: Run apt update
-        if: runner.os == 'Linux'
-        run: sudo apt upgrade
-        
-      - name: Install required Linux packages
-        if: runner.os == 'Linux'
-        run: >
-          sudo apt install -y mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev 
-          libxext-dev libibus-1.0-dev
-          fcitx-libs-dev libudev-dev libunwind-dev 
-          libwayland-dev libxkbcommon-dev libpulse-dev libsndio-dev
-          
-      - name: Setup macOS Build Dependencies
-        if: ${{ runner.os == 'macOS' }}
-        run: brew install ninja
-
-      - name: Setup Windows Build Dependencies
-        if: ${{ runner.os == 'Windows' }}
-        run: choco install ninja
-      
       - name: Build with autobuild
-        uses: secondlife/action-autobuild@v3
+        uses: secondlife/action-autobuild@v5
         with:
           addrsize: ${{ matrix.addrsize }}
   release:

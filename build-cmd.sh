@@ -273,6 +273,13 @@ case "$AUTOBUILD_PLATFORM" in
             cmake --install . --config Release
         popd
 
+        # WolfViewer: native Wayland on GNOME needs libdecor for a title bar. SDL silently drops
+        # it when libdecor-0-dev is missing at configure time, so refuse to package without it.
+        if ! grep -q '^#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_LIBDECOR ' "$PREFIX_RELEASE/include/SDL2/SDL_config.h"; then
+            echo "SDL2 was configured without dynamic libdecor support (install libdecor-0-dev)" >&2
+            exit 1
+        fi
+        grep '^#define SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC' "$PREFIX_RELEASE/include/SDL2/SDL_config.h"
         cp -a $PREFIX_RELEASE/include/SDL2/*.* $stage/include/SDL2
 
         cp -a $PREFIX_DEBUG/lib/*.so* $stage/lib/debug
